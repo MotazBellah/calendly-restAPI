@@ -14,7 +14,19 @@ mongoose.connect(URI)
 app.post('/api/schedule_meeting', function (req, res) {
     const { title, meetingCreator, meetingWith, slotTime, slotDate, duration } = req.body
     // 
-console.log(meetingCreator)
+    const isDate = (date) => {
+        return (new Date(date) !== "Invalid Date") && !isNaN(new Date(date));
+      }
+    const isTime = moment(slotTime, 'HH:mm', true).isValid()
+
+    if(!isDate(slotDate)) {
+        res.json({"error": "The date slot is not correctly"})
+    }
+
+    if(!isTime) {
+        res.json({"error": "The time slot is not correctly"})
+    }
+
     const meeting = new Meeting({
         title: title,
         meetingCreator: meetingCreator,
@@ -23,15 +35,20 @@ console.log(meetingCreator)
         slotDate: slotDate,
         duration: duration,
     });
-
-    meeting.save()
-    .then((result) =>{
-        // console.log(result)
-        res.send(result)
-    })
-    .catch((err) => {
-        console.log(err)
-    })
+    try {
+        meeting.save()
+            .then((result) =>{
+                // console.log(result)
+                res.json(result)
+            })
+            .catch((err) => {
+                console.log(err)
+            })
+    } catch (error) {
+        console.log(error)
+        res.json({"error": "Something went wrong"})
+    }
+    
 })
 
 
