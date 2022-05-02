@@ -24,7 +24,7 @@ app.post('/api/schedule_meeting',  async function (req, res) {
       }
     const isTime = moment(slotTime, 'HH:mm', true).isValid()
    
-    if(!isDate(slotDate)) {
+    if(!isDate(slotDate) || moment(slotDate).isBefore(moment(), "day")) {
         return res.json({"error": "The date slot is not correctly"})
     }
 
@@ -95,17 +95,17 @@ app.post('/api/schedule_meeting',  async function (req, res) {
         }
          
       
-    }
-   
+    }  
     
-        
-    
-    
+})
 
 
-    
-    
-    
+app.get('/api/view/:username',  async function (req, res) {
+    const { username } = req.params
+    const meetingList = await Meeting.find({$or: [{meetingWith: username},{meetingCreator: username}]},
+            {slotDate: 1, title: 1, slotTime: 1, duration: 1,  _id: 0})
+    res.status(200).json(meetingList);
+
 })
 
 
