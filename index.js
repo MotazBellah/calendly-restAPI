@@ -109,4 +109,8 @@ app.get('/api/view/:username',  async function (req, res) {
 })
 
 
-app.listen(3000)
+module.exports = app;
+
+app.listen(3000,function(){
+    console.log("I am listening at PORT 3000");
+  })
