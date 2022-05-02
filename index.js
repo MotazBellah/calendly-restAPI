@@ -104,7 +104,12 @@ app.get('/api/view/:username',  async function (req, res) {
     const { username } = req.params
     const meetingList = await Meeting.find({$or: [{meetingWith: username},{meetingCreator: username}]},
             {slotDate: 1, title: 1, slotTime: 1, duration: 1,  _id: 0})
-    res.status(200).json(meetingList);
+    if (meetingList.length > 0) {
+        return res.status(200).json(meetingList);
+    } else {
+        return res.status(200).json({"message": `${username} has no meeting yet`});
+    }
+    
 
 })
 
