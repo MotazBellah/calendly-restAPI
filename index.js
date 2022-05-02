@@ -1,9 +1,12 @@
 const express = require('express')
 const mongoose = require('mongoose');
-const moment  = require('moment')
+const Moment = require('moment');
+const MomentRange = require('moment-range');
 const User = require('./models/user')
 const Meeting = require('./models/meeting')
 const app = express()
+
+const moment = MomentRange.extendMoment(Moment);
 
 app.use(express.json())
 
@@ -11,43 +14,97 @@ const URI = "mongodb+srv://admin:xLyH3k15Q3M3FFJh@cluster0.tkhkv.mongodb.net/cal
 mongoose.connect(URI)
 
 
-app.post('/api/schedule_meeting', function (req, res) {
+app.post('/api/schedule_meeting',  async function (req, res) {
     const { title, meetingCreator, meetingWith, slotTime, slotDate, duration } = req.body
+    let meetingList = [];
+    let userList = []
     // 
     const isDate = (date) => {
         return (new Date(date) !== "Invalid Date") && !isNaN(new Date(date));
       }
     const isTime = moment(slotTime, 'HH:mm', true).isValid()
-
+   
     if(!isDate(slotDate)) {
-        res.json({"error": "The date slot is not correctly"})
+        return res.json({"error": "The date slot is not correctly"})
     }
 
-    if(!isTime) {
-        res.json({"error": "The time slot is not correctly"})
+    else if(!isTime) {
+        return res.json({"error": "The time slot is not correctly"})
     }
 
-    const meeting = new Meeting({
-        title: title,
-        meetingCreator: meetingCreator,
-        meetingWith: meetingWith,
-        slotTime: slotTime,
-        slotDate: slotDate,
-        duration: duration,
-    });
-    try {
-        meeting.save()
-            .then((result) =>{
-                // console.log(result)
-                res.json(result)
-            })
-            .catch((err) => {
-                console.log(err)
-            })
-    } catch (error) {
-        console.log(error)
-        res.json({"error": "Something went wrong"})
+    else {
+
+        const meeting = new Meeting({
+            title: title,
+            meetingCreator: meetingCreator,
+            meetingWith: meetingWith,
+            slotTime: slotTime,
+            slotDate: slotDate,
+            duration: duration,
+        });
+        const users = [meetingCreator, meetingWith]
+        const checkUser = await User.find({username: {$in: users}})
+  
+        if (checkUser.length === 2) {
+            const meetingList = await Meeting.find({$or: [{meetingWith: meetingWith},{meetingCreator: meetingWith}]})
+            for (const i in meetingList) {
+                
+                    const element = meetingList[i];
+                    // console.log(element)
+                    try {
+                        if (element.slotDate == slotDate) {
+                            console.log(element.slotTime)
+                            const startTime = moment(element.slotTime, 'HH:mm');
+                            const value = element.duration
+                            const endTime = startTime.add(value, 'minutes').format('HH:mm');
+                            
+                            const date1 = element.slotDate + " " + element.slotTime
+                            const date2 = element.slotDate + " " + endTime
+
+                            var dateRange = [moment(date1), moment(date2)];
+
+                            const startTime2 = moment(slotTime, 'HH:mm');
+                            const endTime2 = startTime.add(duration, 'minutes').format('HH:mm');
+                            
+                            const date12 = slotDate + " " + slotTime
+                            const date22 = slotDate + " " + endTime2
+
+                            var dateRange2 = [moment(date12), moment(date22)];
+                            
+                            // console.log(dateRange)
+                            const range1 = moment.range(dateRange);
+                            const range2 = moment.range(dateRange2);
+                            console.log(range1.overlaps(range2));
+                            if (range1.overlaps(range2)){
+                                return res.status(200).send({"error": `${meetingWith} is busy, Please select different time slot`});
+                            }
+
+                        }
+                    } catch (error) {
+                        // pass
+                    }
+               
+            }
+
+           
+            // console.log(meetingList)
+            const schedulMeeting = await meeting.save()
+            return res.status(201).json(schedulMeeting);
+        } else {
+            return res.status(400).send({"error": "User does not exist"});
+        }
+         
+      
     }
+   
+    
+        
+    
+    
+
+
+    
+    
     
 })
 

@@ -5,31 +5,27 @@ const ObjectId = Schema.ObjectId;
 const meetingSchema = new Schema({
   title: {
     type: String,
-    required: true,
-  
+   
   },
   meetingCreator: {
     type: String,
-    required: true,
-  
+    
   },
   meetingWith: {
     type: String,
-    required: true,
   
   },
   duration: {
     type: String,
-    required: true,
+   
     default: "30"
   },
   slotTime: { 
      type: String,
-     required: true,
    },
   slotDate: { 
       type: String,
-      required: true,
+      
     },
 }, { timestamps: true });
 
