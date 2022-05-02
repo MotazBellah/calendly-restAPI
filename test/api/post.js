@@ -1,4 +1,5 @@
 process.env.NODE_ENV = 'test'
+require('dotenv').config()
 
 const expect = require('chai').expect;
 const request = require('supertest');
@@ -6,7 +7,7 @@ const mongoose = require('mongoose');
 
 const app = require("../../index.js");
 
-const URI = "mongodb+srv://admin:xLyH3k15Q3M3FFJh@cluster0.tkhkv.mongodb.net/calendly?retryWrites=true&w=majority"
+const URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PWD}@cluster0.tkhkv.mongodb.net/calendly?retryWrites=true&w=majority`
 
 
 describe("POST /api/schedule_meeting", () => {

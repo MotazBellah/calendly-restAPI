@@ -1,35 +1,44 @@
+require('dotenv').config()
+
 const express = require('express')
 const mongoose = require('mongoose');
 const Moment = require('moment');
 const MomentRange = require('moment-range');
 const User = require('./models/user')
 const Meeting = require('./models/meeting')
+const tools= require("./tools.js")
 const app = express()
 
 const moment = MomentRange.extendMoment(Moment);
 
 app.use(express.json())
 
-const URI = "mongodb+srv://admin:xLyH3k15Q3M3FFJh@cluster0.tkhkv.mongodb.net/calendly?retryWrites=true&w=majority"
+
+const URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PWD}@cluster0.tkhkv.mongodb.net/calendly?retryWrites=true&w=majority`
 mongoose.connect(URI)
 
 
 app.post('/api/schedule_meeting',  async function (req, res) {
-    const { title, meetingCreator, meetingWith, slotTime, slotDate, duration } = req.body
-    let meetingList = [];
-    let userList = []
-    // 
+    // Destructure the body, and get the data
+    const { title, meetingCreator, meetingWith, slotTime, slotDate, d } = req.body;
+    // Use ternaries, to check if the duration is valid, if not then by default it equal 30 min
+    duration = !d ? '30' : !isNaN(d) ? d : '30'
+
     const isDate = (date) => {
+        // Function to check if the data invalid using js Date object
         return (new Date(date) !== "Invalid Date") && !isNaN(new Date(date));
       }
+    //   Check if the time is valid using momentJs
     const isTime = moment(slotTime, 'HH:mm', true).isValid()
    
-    if(!isDate(slotDate) || moment(slotDate).isBefore(moment(), "day")) {
-        return res.json({"error": "The date slot is not correctly"})
+    if(!tools.isDate(slotDate) || moment(slotDate).isBefore(moment(), "day")) {
+        // Make sure the user select date from the future not the past
+        // return error to inform the user
+        return res.status(400).json({"error": "The date slot is not correctly"})
     }
 
     else if(!isTime) {
-        return res.json({"error": "The time slot is not correctly"})
+        return res.status(400).json({"error": "The time slot is not correctly"})
     }
 
     else {
@@ -42,56 +51,45 @@ app.post('/api/schedule_meeting',  async function (req, res) {
             slotDate: slotDate,
             duration: duration,
         });
+        // List of user (meeting attendees)
         const users = [meetingCreator, meetingWith]
+        // Check the user already exsit
         const checkUser = await User.find({username: {$in: users}})
-  
+        // If the length is 2, then all attendees are found in our system
         if (checkUser.length === 2) {
+            // Before create a new meeting, we list all the user's meeting, 
+            // to make sure the time is valid and not overlaping with anhtor meeting
             const meetingList = await Meeting.find({$or: [{meetingWith: meetingWith},{meetingCreator: meetingWith}]})
             for (const i in meetingList) {
                 
                     const element = meetingList[i];
-                    // console.log(element)
+                    // if the entered day, already found in the DB, then make sure there is no conflict with other meetings
                     try {
                         if (element.slotDate == slotDate) {
-                            console.log(element.slotTime)
-                            const startTime = moment(element.slotTime, 'HH:mm');
-                            const value = element.duration
-                            const endTime = startTime.add(value, 'minutes').format('HH:mm');
+                            // Create time range between start time and end time
+                            // Check if the there is a conflict
+                            const range1 = tools.getRange(element.slotDate, element.slotTime, element.duration);
+                            const range2 = tools.getRange(slotDate, slotTime, duration);
                             
-                            const date1 = element.slotDate + " " + element.slotTime
-                            const date2 = element.slotDate + " " + endTime
-
-                            var dateRange = [moment(date1), moment(date2)];
-
-                            const startTime2 = moment(slotTime, 'HH:mm');
-                            const endTime2 = startTime.add(duration, 'minutes').format('HH:mm');
-                            
-                            const date12 = slotDate + " " + slotTime
-                            const date22 = slotDate + " " + endTime2
-
-                            var dateRange2 = [moment(date12), moment(date22)];
-                            
-                            // console.log(dateRange)
-                            const range1 = moment.range(dateRange);
-                            const range2 = moment.range(dateRange2);
-                            console.log(range1.overlaps(range2));
                             if (range1.overlaps(range2)){
-                                return res.status(200).send({"error": `${meetingWith} is busy, Please select different time slot`});
+                                return res.status(409).send({"error": `${meetingWith} is busy, Please select different time slot`});
                             }
 
                         }
                     } catch (error) {
-                        // pass
+                        console.log(error);
+                        return res.status(500).send({"error": "Something went wrong, please try again later!"});
                     }
                
             }
 
            
-            // console.log(meetingList)
+            // after a successful validation, save the meetion
             const schedulMeeting = await meeting.save()
             return res.status(201).json(schedulMeeting);
         } else {
-            return res.status(400).send({"error": "User does not exist"});
+            // The user list is less than 2, then one of the attendees not registered to the system
+            return res.status(404).send({"error": "User does not exist"});
         }
          
       
@@ -101,9 +99,13 @@ app.post('/api/schedule_meeting',  async function (req, res) {
 
 
 app.get('/api/view/:username',  async function (req, res) {
+    // Get the username from the URL
     const { username } = req.params
+    // Get the meeting list where the user is the meeting creator or attendee
+    // Get only the slotdate, title, slottime and duration
     const meetingList = await Meeting.find({$or: [{meetingWith: username},{meetingCreator: username}]},
             {slotDate: 1, title: 1, slotTime: 1, duration: 1,  _id: 0})
+    // If the meetinglist is empty inform the user that, the user has no meeting
     if (meetingList.length > 0) {
         return res.status(200).json(meetingList);
     } else {
