@@ -11,20 +11,11 @@ const URI = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PWD}@cluster0
 
 
 describe("GET /api/view/:username", () => {
-    before(() => {
-        mongoose.connect(URI)
-    })
-
-    after(() => {
-        mongoose.connection.close()
-    })
-
 
     it("OK, view another user’s meetings", (done) => {
         request(app).get("/api/view/Moataz")  
             .then((res) => {
                 const body = res.body;
-                console.log(body)
                 expect(body.length).to.not.equal(0);
                 done();
             })
@@ -35,7 +26,6 @@ describe("GET /api/view/:username", () => {
         request(app).get("/api/view/notfound")
             .then((res) => {
                 const body = res.body;
-                console.log(body)
                 expect(body).to.contain.property("message");
                 expect(body.message).to.equal('notfound has no meeting yet');
                 done();
